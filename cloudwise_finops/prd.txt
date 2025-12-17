@@ -1,0 +1,715 @@
+# CloudWise FinOps - Product Requirements Document
+
+## Overview
+**Purpose**: Multi-cloud financial operations platform that aggregates, analyzes, and optimizes costs across AWS, GCP, and Azure with policy-controlled automation and anomaly detection.
+
+**Target Users**: Cloud FinOps teams, DevOps engineers, and financial operations managers managing multi-cloud infrastructure.
+
+**Key Value**: Unified cost visibility across cloud providers, automated anomaly detection with <5% false positive rate, actionable optimization recommendations with >80% accuracy, and policy-governed automation with human-in-the-loop approvals.
+
+**Agent Count Justification**: 6 agents for 24 tools represents a complex FinOps platform with specialized domains (data collection, statistical analysis, optimization, governance, reporting). While 24 tools typically suggests 3 agents minimum, the cross-agent collaboration pattern, multi-cloud complexity, and distinct job roles justify this architecture:
+- Cloud Connector: Specialized in multi-cloud API integration (3 providers)
+- Anomaly Detector: Statistical algorithms requiring custom implementations
+- Optimizer: Complex cost optimization logic across multiple dimensions
+- Policy Engine: Governance and compliance validation
+- Reporter: Output generation and forecasting
+- CEO: Orchestration and user communication
+
+This mirrors real FinOps team structure and enables parallel specialization.
+
+## Agency Configuration
+- **Name**: cloudwise_finops
+- **Pattern**: Orchestrator-Workers with Cross-Agent Collaboration (Hybrid)
+- **Entry Agent**: finops_ceo (receives all user requests and routes to specialists)
+
+## Agents
+
+### Agent 1: FinOps CEO (Entry Point)
+- **Folder Name**: finops_ceo
+- **Instance Name**: finops_ceo
+- **Agent Name**: "FinOpsCEO"
+- **Description**: Orchestrates multi-cloud cost analysis workflows, routes user requests to specialized agents, and synthesizes results into actionable insights.
+- **Primary Responsibilities**:
+  1. Receive and parse user queries about cloud costs, anomalies, and optimization opportunities
+  2. Route requests to appropriate specialist agents (Cloud Connector, Anomaly Detector, Optimizer, Policy Engine, Reporter)
+  3. Synthesize multi-agent results into cohesive recommendations
+  4. Escalate policy violations and high-risk actions to users
+  5. Maintain conversation context across multi-step workflows
+- **Tools** (0 total - pure orchestrator):
+  - No direct tools (uses SendMessage to delegate to workers)
+- **API Keys Required**: OPENAI_API_KEY
+
+### Agent 2: Cloud Connector
+- **Folder Name**: cloud_connector
+- **Instance Name**: cloud_connector
+- **Agent Name**: "CloudConnector"
+- **Description**: Fetches and normalizes cost data from AWS, GCP, and Azure into a unified format for analysis.
+- **Primary Responsibilities**:
+  1. Fetch cost data from AWS Cost Explorer API (historical and current)
+  2. Query GCP billing export data from BigQuery
+  3. Retrieve Azure Cost Management data via API
+  4. Normalize multi-cloud cost data into standard schema (resource, cost, usage, tags, time period)
+  5. Cache cost snapshots locally for performance and rate limit management
+- **Tools** (5 total):
+  - MCP: aws-cost-explorer → get_cost_and_usage, get_dimension_values, get_tag_values, get_today_date
+  - MCP: bigquery → execute_sql (for GCP billing export queries), list_dataset_ids, get_table_info
+  - MCP: azure-billing → cost_analysis, usage_details, subscription_information
+  - MCP: sqlite → Execute SQL queries for local caching, read/write cost snapshots
+  - Custom: NormalizeCostData - Converts multi-cloud cost formats into unified schema
+- **API Keys Required**:
+  - OPENAI_API_KEY
+  - AWS_PROFILE, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+  - GOOGLE_APPLICATION_CREDENTIALS, BIGQUERY_PROJECT
+  - AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_SUBSCRIPTION_ID
+
+### Agent 3: Anomaly Detector
+- **Folder Name**: anomaly_detector
+- **Instance Name**: anomaly_detector
+- **Agent Name**: "AnomalyDetector"
+- **Description**: Identifies cost anomalies using statistical analysis, classifies anomaly types, and triggers alerts for spending spikes.
+- **Primary Responsibilities**:
+  1. Calculate baseline cost patterns using 30-day rolling window with seasonal adjustment
+  2. Detect spending spikes (>20% increase from 7-day moving average)
+  3. Identify trend changes using regression analysis
+  4. Classify anomaly types (cost spike, usage spike, new resource, zombie resource)
+  5. Trigger alerts for high-confidence anomalies (via Slack or custom notification)
+- **Tools** (5 total):
+  - Custom: CalculateBaseline - Statistical analysis with moving averages and seasonal decomposition
+  - Custom: DetectSpike - Threshold-based detection using Z-score and percentage deviation
+  - Custom: DetectTrendChange - Regression analysis for sustained cost pattern changes
+  - Custom: ClassifyAnomaly - Rule-based classification (spike >20%, zombie <5% utilization for 14+ days)
+  - MCP: sqlite → Store baseline calculations and historical patterns for comparison
+- **API Keys Required**:
+  - OPENAI_API_KEY
+  - SLACK_WEBHOOK_URL (optional, for alerts)
+
+### Agent 4: Optimizer
+- **Folder Name**: optimizer
+- **Instance Name**: optimizer
+- **Agent Name**: "Optimizer"
+- **Description**: Generates cost optimization recommendations including rightsizing, reserved instances, spot instances, and cross-cloud arbitrage opportunities.
+- **Primary Responsibilities**:
+  1. Analyze rightsizing opportunities by comparing actual resource utilization vs. provisioned capacity
+  2. Calculate Reserved Instance and Savings Plans potential savings
+  3. Identify idle/zombie resources (<5% utilization for 14+ days)
+  4. Suggest spot instance usage for fault-tolerant workloads
+  5. Calculate cross-provider arbitrage opportunities (e.g., GCP Preemptible vs AWS Spot pricing)
+  6. Estimate total potential savings with confidence intervals
+- **Tools** (6 total):
+  - MCP: aws-cost-explorer → get_cost_forecast (for RI savings projections)
+  - MCP: bigquery → execute_sql (query GCP Committed Use Discounts and preemptible pricing)
+  - MCP: azure-billing → price_sheet (for Azure pricing comparisons)
+  - Custom: AnalyzeRightsizing - Compare actual utilization metrics vs instance size, recommend optimal sizes
+  - Custom: CalculateRISavings - Analyze RI/Savings Plans utilization and calculate ROI with custom logic
+  - Custom: CalculateCrossCloudArbitrage - Compare pricing across AWS/GCP/Azure for portable workloads
+- **API Keys Required**:
+  - OPENAI_API_KEY
+  - AWS credentials (for pricing data)
+  - GCP credentials (for BigQuery pricing queries)
+  - Azure credentials (for price sheet access)
+
+### Agent 5: Policy Engine
+- **Folder Name**: policy_engine
+- **Instance Name**: policy_engine
+- **Agent Name**: "PolicyEngine"
+- **Description**: Validates optimization actions against budget policies, compliance rules, and risk thresholds before execution.
+- **Primary Responsibilities**:
+  1. Load and parse budget policies from configuration files
+  2. Validate proposed optimization actions against policies (budget limits, approval requirements)
+  3. Check compliance rules (tagging standards, resource constraints, regional restrictions)
+  4. Assess automation risk levels (HIGH: deletion, MEDIUM: scaling, LOW: tagging)
+  5. Route high-risk actions for human approval before execution
+- **Tools** (4 total):
+  - MCP: filesystem → read_file (load budget policy YAML/JSON files)
+  - MCP: filesystem → write_file (log policy validation results)
+  - Custom: ValidateAction - Business logic for approval workflows, budget checks, compliance validation
+  - Custom: CheckCompliance - Rule engine for tagging standards, regional restrictions, resource policies
+- **API Keys Required**:
+  - OPENAI_API_KEY
+
+### Agent 6: Reporter
+- **Folder Name**: reporter
+- **Instance Name**: reporter
+- **Agent Name**: "Reporter"
+- **Description**: Generates cost reports, forecasts, and dashboard data with customizable formats and scheduling.
+- **Primary Responsibilities**:
+  1. Generate comprehensive cost reports aggregated by service, region, account, or custom tags
+  2. Create cost forecasts using historical trends and statistical models
+  3. Build dashboard data with cost breakdown visualizations
+  4. Schedule recurring reports (daily, weekly, monthly)
+  5. Export reports in multiple formats (JSON, CSV, PDF)
+- **Tools** (4 total):
+  - MCP: aws-cost-explorer → get_cost_forecast (AWS forecasting with confidence intervals)
+  - MCP: bigquery → execute_sql (GCP cost aggregation and historical queries)
+  - MCP: filesystem → write_file (save generated reports to disk)
+  - Custom: BuildDashboardData - Aggregate multi-cloud costs into unified dashboard format with charts
+- **API Keys Required**:
+  - OPENAI_API_KEY
+  - AWS credentials (for forecasting)
+  - GCP credentials (for BigQuery aggregations)
+
+## Communication Flows
+
+### Primary Pattern: Orchestrator-Workers
+```python
+communication_flows = [
+    (finops_ceo, cloud_connector),     # CEO delegates data collection tasks
+    (finops_ceo, anomaly_detector),    # CEO requests anomaly analysis
+    (finops_ceo, optimizer),           # CEO requests optimization recommendations
+    (finops_ceo, policy_engine),       # CEO validates actions against policies
+    (finops_ceo, reporter),            # CEO requests cost reports/forecasts
+]
+```
+
+### Cross-Agent Collaboration (Pipeline Pattern)
+```python
+# Additional flows for agent-to-agent coordination
+communication_flows += [
+    (cloud_connector, anomaly_detector),  # New data triggers anomaly check
+    (anomaly_detector, optimizer),        # Detected anomaly triggers optimization analysis
+    (optimizer, policy_engine),           # Optimization recommendation needs policy validation
+    (policy_engine, optimizer),           # Policy feedback affects optimization suggestions
+]
+```
+
+**Note**: CEO remains primary orchestrator, but specialist agents can communicate directly for efficiency in multi-step workflows (e.g., data collection → anomaly detection → optimization → policy check).
+
+## Tool Specifications
+
+### MCP Server Tools
+
+| Agent | MCP Server | Tools | Purpose |
+|-------|------------|-------|---------|
+| cloud_connector | aws-cost-explorer | get_cost_and_usage, get_dimension_values, get_tag_values, get_today_date | Fetch AWS cost data with filtering and grouping |
+| cloud_connector | bigquery | execute_sql, list_dataset_ids, get_table_info | Query GCP billing export from BigQuery |
+| cloud_connector | azure-billing | cost_analysis, usage_details, subscription_information | Retrieve Azure cost data |
+| cloud_connector | sqlite | Execute SQL queries | Cache normalized cost snapshots locally |
+| anomaly_detector | sqlite | Execute SQL queries, read/write | Store baseline calculations and historical patterns |
+| optimizer | aws-cost-explorer | get_cost_forecast | Generate RI savings projections |
+| optimizer | bigquery | execute_sql | Query GCP pricing and commitment data |
+| optimizer | azure-billing | price_sheet | Access Azure pricing information |
+| policy_engine | filesystem | read_file, write_file | Load policies and log validation results |
+| reporter | aws-cost-explorer | get_cost_forecast | Generate AWS cost forecasts |
+| reporter | bigquery | execute_sql | Aggregate GCP costs for reports |
+| reporter | filesystem | write_file | Save reports to disk |
+
+### Custom Tools (Requiring Implementation)
+
+| Tool | Agent | Inputs | Output | Purpose |
+|------|-------|--------|--------|---------|
+| NormalizeCostData | cloud_connector | raw_data: dict, provider: str | Normalized cost schema | Converts AWS/GCP/Azure formats into unified structure |
+| CalculateBaseline | anomaly_detector | cost_history: list, window_days: int | Baseline metrics dict | Statistical analysis with seasonal adjustment |
+| DetectSpike | anomaly_detector | current_cost: float, baseline: dict, threshold: float | Anomaly result dict | Z-score and percentage-based spike detection |
+| DetectTrendChange | anomaly_detector | cost_series: list, min_change: float | Trend analysis dict | Regression analysis for sustained pattern changes |
+| ClassifyAnomaly | anomaly_detector | anomaly_data: dict | Classification string | Rule-based classification (spike, trend, zombie) |
+| AnalyzeRightsizing | optimizer | usage_metrics: dict, instance_specs: dict | Rightsizing recommendations | Compare utilization vs capacity, suggest optimal sizes |
+| CalculateRISavings | optimizer | current_usage: dict, ri_offerings: list | Savings estimate dict | Analyze RI/Savings Plans ROI with custom logic |
+| CalculateCrossCloudArbitrage | optimizer | workload_specs: dict, pricing_data: dict | Arbitrage opportunities | Compare AWS/GCP/Azure pricing for portable workloads |
+| ValidateAction | policy_engine | action: dict, policies: dict | Validation result | Check action against budget/compliance/risk policies |
+| CheckCompliance | policy_engine | resource_data: dict, compliance_rules: dict | Compliance status | Validate tagging, regional, and resource policies |
+| BuildDashboardData | reporter | cost_data: list, grouping: str | Dashboard JSON | Aggregate costs with visualization-ready format |
+
+## Workflow Examples
+
+### Example 1: Multi-Cloud Cost Analysis (Common Use Case)
+**User Input**: "Show me total costs across all clouds for the last 30 days, grouped by service"
+
+**Flow**:
+1. FinOps CEO receives request, parses timeframe (30 days) and grouping (service)
+2. CEO delegates to Cloud Connector: "Fetch cost data from AWS, GCP, and Azure for last 30 days"
+3. Cloud Connector:
+   - Uses aws-cost-explorer MCP to query AWS costs grouped by SERVICE dimension
+   - Uses bigquery MCP to execute SQL query on GCP billing export for 30-day costs
+   - Uses azure-billing MCP to analyze Azure costs with service grouping
+   - Uses NormalizeCostData custom tool to convert all three formats into unified schema
+   - Caches normalized data in SQLite via MCP
+   - Returns aggregated data to CEO
+4. CEO sends normalized data to Reporter: "Generate cost report with service breakdown"
+5. Reporter:
+   - Uses BuildDashboardData custom tool to aggregate and format costs
+   - Uses filesystem MCP to save report as JSON/CSV
+   - Returns summary and file path to CEO
+6. CEO presents results to user: "Total 30-day costs: $45,230. Top services: EC2 ($12,450), BigQuery ($8,900), Azure VMs ($7,200). Full report saved to cloudwise_finops_report_2025-12-17.json"
+
+### Example 2: Anomaly Detection and Optimization (Complex Workflow)
+**User Input**: "Check for cost anomalies and suggest optimizations"
+
+**Flow**:
+1. FinOps CEO receives request
+2. CEO delegates to Cloud Connector: "Fetch latest cost data from all clouds"
+3. Cloud Connector returns normalized cost data
+4. Cloud Connector automatically triggers Anomaly Detector (via direct communication flow)
+5. Anomaly Detector:
+   - Retrieves historical baseline from SQLite cache using MCP
+   - Uses CalculateBaseline custom tool to compute 30-day rolling average with seasonal adjustment
+   - Uses DetectSpike custom tool to compare current costs against baseline (threshold: >20% deviation)
+   - Detects anomaly: "AWS EC2 us-east-1 costs increased 35% ($2,100 → $2,835)"
+   - Uses ClassifyAnomaly custom tool: "Type: COST_SPIKE, Confidence: HIGH"
+   - Returns anomaly details to CEO
+6. CEO delegates to Optimizer: "Analyze EC2 costs in us-east-1, suggest optimizations"
+7. Optimizer:
+   - Uses AnalyzeRightsizing custom tool to identify oversized instances
+   - Uses aws-cost-explorer MCP to get RI coverage data
+   - Uses CalculateRISavings custom tool to estimate RI potential savings
+   - Identifies: "10 m5.2xlarge instances with <30% CPU utilization, recommend downsize to m5.xlarge"
+   - Estimates: "$8,400/year savings from rightsizing + $3,200/year from 1-year RIs"
+   - Returns recommendations to CEO
+8. CEO delegates to Policy Engine: "Validate proposed rightsizing actions"
+9. Policy Engine:
+   - Uses filesystem MCP to read budget_policies.yaml
+   - Uses ValidateAction custom tool to check against policies
+   - Risk assessment: "MEDIUM risk (scaling), requires manager approval"
+   - Uses filesystem MCP to log validation result
+   - Returns: "Approved for staging environment, requires approval for production"
+10. CEO synthesizes results: "Detected 35% cost spike in EC2 us-east-1. Root cause: 10 oversized instances. Recommended action: Downsize to m5.xlarge (estimated $11,600/year savings). Status: Approved for staging, awaiting your approval for production. Apply recommendations? [Yes/No]"
+
+### Example 3: Policy Violation Alert (Error Handling)
+**Scenario**: User requests immediate deletion of "zombie" resources without approval
+
+**User Input**: "Delete all resources with <5% utilization immediately"
+
+**Flow**:
+1. FinOps CEO receives request, recognizes high-risk action (deletion)
+2. CEO delegates to Optimizer: "Identify resources with <5% utilization for 14+ days"
+3. Optimizer identifies 25 idle resources across clouds
+4. CEO delegates to Policy Engine: "Validate deletion action for 25 resources"
+5. Policy Engine:
+   - Uses filesystem MCP to read budget_policies.yaml
+   - Uses ValidateAction custom tool to check deletion action
+   - Risk assessment: "HIGH risk (deletion), requires director approval + 24-hour waiting period"
+   - Uses CheckCompliance to verify resources don't have "protected" tags
+   - Finds 3 resources with "critical=true" tags
+   - Returns: "BLOCKED: 3 resources are tagged critical, 22 require director approval per policy"
+6. CEO escalates to user: "Cannot proceed with immediate deletion. Policy requires: (1) Director approval for all 25 resources, (2) 24-hour waiting period, (3) Manual review of 3 critical-tagged resources. Would you like me to generate a deletion request ticket instead?"
+7. User confirms, CEO delegates to Reporter to generate approval request document
+
+### Example 4: Scheduled Cost Forecast (Automated Workflow)
+**Scenario**: Weekly forecast report scheduled via cron
+
+**Trigger**: Scheduled task runs every Monday at 9 AM
+
+**Flow**:
+1. Scheduled task sends message to FinOps CEO: "Generate weekly cost forecast report"
+2. CEO delegates to Cloud Connector: "Fetch last 90 days of cost data for forecasting"
+3. Cloud Connector returns historical data
+4. CEO delegates to Reporter: "Generate 30-day cost forecast with 80% confidence intervals"
+5. Reporter:
+   - Uses aws-cost-explorer MCP get_cost_forecast for AWS predictions
+   - Uses bigquery MCP to query GCP historical trends, applies custom forecasting
+   - Uses BuildDashboardData custom tool to create visualization-ready forecast
+   - Uses filesystem MCP to save report to scheduled_reports/weekly_forecast_2025-12-17.json
+   - Returns forecast summary to CEO
+6. CEO checks for notable trends in forecast
+7. If forecast shows >15% increase, CEO delegates to Anomaly Detector: "Analyze forecast for potential anomalies"
+8. CEO compiles final report: "30-day forecast: $48,500 (±$2,100). Trend: +7% vs previous month. No anomalies detected. Full report saved and emailed to stakeholders."
+
+## Dependencies
+
+### Required API Keys and Credentials
+
+#### Always Required
+- **OPENAI_API_KEY**: Powers all Agency Swarm agents
+  - Obtain from: https://platform.openai.com/api-keys
+  - Recommended balance: $50-100 for initial testing, $100-500/month for production
+  - Expected usage: $0.50-2.00 per complex query, budget $200-400/month for active monitoring
+
+#### Cloud Provider Credentials
+
+##### AWS (Required for AWS cost data)
+- **AWS_PROFILE**: AWS CLI profile name (default: "default")
+- **AWS_REGION**: Primary AWS region (default: "us-east-1")
+- **AWS_ACCESS_KEY_ID**: IAM user access key
+- **AWS_SECRET_ACCESS_KEY**: IAM user secret key
+
+**How to obtain**:
+1. AWS Console → IAM → Users → Create user "cloudwise-finops-bot"
+2. Attach policies: ViewOnlyAccess + Custom Cost Explorer policy
+3. Security credentials → Create access key
+4. Configure: `aws configure` or add to .env file
+
+**Required IAM permissions**:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ce:*",
+        "cur:DescribeReportDefinitions",
+        "aws-portal:ViewBilling",
+        "budgets:ViewBudget",
+        "savingsplans:Describe*",
+        "ec2:DescribeReservedInstances*",
+        "ec2:DescribeSpotPriceHistory"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**Cost**: AWS Cost Explorer API charges $0.01 per request. Budget $10-50/month.
+
+**Prerequisites**: Enable Cost Explorer (wait 24 hours for data).
+
+##### GCP (Required for GCP cost data)
+- **GOOGLE_APPLICATION_CREDENTIALS**: Path to service account JSON key file
+- **BIGQUERY_PROJECT**: GCP project ID containing billing export
+
+**How to obtain**:
+1. GCP Console → IAM & Admin → Service Accounts
+2. Create service account "cloudwise-finops-bot"
+3. Grant roles: BigQuery User, BigQuery Data Viewer, Billing Account Viewer
+4. Create JSON key, download, set environment variable path
+
+**Enable Billing Export**:
+1. Billing → Billing export → BigQuery export
+2. Configure standard + detailed usage export
+3. Wait 24-48 hours for first data
+
+**Cost**: BigQuery storage ($0.02/GB/month) + queries (first 1 TB/month free). Typical: $5-20/month.
+
+##### Azure (Required for Azure cost data)
+- **AZURE_TENANT_ID**: Azure AD tenant ID
+- **AZURE_CLIENT_ID**: Service principal application ID
+- **AZURE_CLIENT_SECRET**: Service principal password
+- **AZURE_SUBSCRIPTION_ID**: Azure subscription ID
+
+**How to obtain**:
+```bash
+az login
+az account set --subscription "Your Subscription"
+az ad sp create-for-rbac \
+  --name "cloudwise-finops-bot" \
+  --role "Cost Management Reader" \
+  --scopes /subscriptions/<subscription-id>
+```
+
+Save output values to .env file.
+
+**Cost**: Azure Cost Management API is free (no per-request charges).
+
+#### Optional Credentials
+- **SLACK_WEBHOOK_URL**: Webhook URL for cost anomaly alerts
+  - Obtain from: https://api.slack.com/apps → Create App → Incoming Webhooks
+  - Format: `https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXX`
+
+- **DATABASE_URL**: PostgreSQL connection string (alternative to SQLite for caching)
+  - Format: `postgresql://user:password@localhost:5432/finops`
+  - Only needed for large deployments requiring centralized data storage
+
+### Python Packages
+
+**Core Framework**:
+- agency-swarm>=1.0.0
+- python-dotenv>=1.0.0
+
+**AWS Integration**:
+- boto3>=1.34.0
+- botocore>=1.34.0
+
+**GCP Integration**:
+- google-cloud-bigquery>=3.13.0
+- google-auth>=2.23.0
+
+**Azure Integration**:
+- azure-identity>=1.15.0
+- azure-mgmt-costmanagement>=4.0.0
+- mcp-azure-billing>=1.0.0 (MCP server package)
+
+**Data Processing**:
+- pandas>=2.1.0 (for cost data normalization)
+- numpy>=1.24.0 (for statistical analysis)
+- scipy>=1.11.0 (for anomaly detection algorithms)
+
+**MCP Server Execution**:
+- uvx (for AWS Cost Explorer MCP)
+- Node.js >= 18 (for filesystem, SQLite, BigQuery MCP servers)
+- npx (installed with Node.js)
+
+**Database**:
+- sqlite3 (built-in Python)
+- psycopg2-binary>=2.9.0 (if using PostgreSQL)
+
+### System Requirements
+
+**Operating System**: Linux, macOS, or Windows with WSL2
+
+**Node.js**: Version 18 or higher (required for MCP servers)
+
+**Python**: Version 3.10 or higher
+
+**Disk Space**: Minimum 2 GB free (for cost data caching)
+
+**Network**: Stable internet connection for cloud API access
+
+## Success Metrics
+
+### Functional Requirements
+- [ ] Successfully authenticate with all three cloud providers (AWS, GCP, Azure)
+- [ ] Aggregate cost data from 3+ providers into unified format
+- [ ] Normalize cost data with standard schema (resource, cost, usage, tags, time period)
+- [ ] Cache cost snapshots locally to reduce API calls by >70%
+- [ ] Detect cost anomalies with <5% false positive rate
+- [ ] Calculate baseline using 30-day rolling window with seasonal adjustment
+- [ ] Classify anomalies into types (spike, trend, zombie) with >85% accuracy
+- [ ] Generate optimization recommendations (rightsizing, RIs, spot instances, arbitrage)
+- [ ] Estimate savings with confidence intervals (±10%)
+- [ ] Validate actions against budget policies before execution
+- [ ] Block HIGH-risk actions (deletion) without proper approval
+- [ ] Generate cost reports in multiple formats (JSON, CSV)
+- [ ] Create 30-day forecasts with 80% confidence intervals
+- [ ] Support scheduled report generation (daily, weekly, monthly)
+
+### Performance Requirements
+- [ ] Initial cost data fetch: <30 seconds for 30-day period across 3 clouds
+- [ ] Anomaly detection: <10 seconds for 30-day historical analysis
+- [ ] Optimization recommendations: <20 seconds for full account scan
+- [ ] Policy validation: <2 seconds per action
+- [ ] Report generation: <15 seconds for standard monthly report
+
+### Communication Requirements
+- [ ] CEO successfully routes requests to all 5 worker agents
+- [ ] Cross-agent flows work: cloud_connector → anomaly_detector → optimizer → policy_engine
+- [ ] Agents return results in consistent format for CEO synthesis
+- [ ] Error messages clearly identify which agent failed and why
+
+### Quality Requirements
+- [ ] MCP servers initialize correctly on agency startup
+- [ ] All custom tools have comprehensive error handling
+- [ ] Clear error messages for missing API keys or credentials
+- [ ] Graceful degradation if one cloud provider is unavailable
+- [ ] Cost data normalization handles edge cases (missing tags, partial data)
+- [ ] Anomaly detection handles data gaps (interpolation or skip)
+- [ ] Policy violations include remediation steps in error messages
+
+### User Experience Requirements
+- [ ] User receives clear summary of cost analysis in <2 paragraphs
+- [ ] Optimization recommendations include cost/benefit trade-offs
+- [ ] High-risk actions prompt user confirmation with detailed explanation
+- [ ] Reports include visual data summaries (top services, trends, anomalies)
+- [ ] Error messages are actionable (e.g., "Enable Cost Explorer and wait 24h" vs "API error")
+
+## Parallel Creation Notes
+
+This PRD enables parallel execution by three specialized agents:
+
+### For agent-creator:
+- **Input**: This PRD (prd.txt)
+- **Create**:
+  - Folder structure: finops_ceo/, cloud_connector/, anomaly_detector/, optimizer/, policy_engine/, reporter/
+  - Agent modules: Each folder gets agent.py with Agent() initialization
+  - agency.py with all 6 agents and communication flows
+  - requirements.txt with all dependencies listed above
+  - .env.example with all required API keys
+  - shared_instructions.md with agency manifesto
+- **Do NOT touch**: instructions.md files (instructions-writer), tools/ contents (tools-creator)
+
+### For instructions-writer:
+- **Input**: This PRD (prd.txt)
+- **Create**:
+  - finops_ceo/instructions.md (orchestration, user communication)
+  - cloud_connector/instructions.md (multi-cloud data collection, normalization)
+  - anomaly_detector/instructions.md (statistical analysis, spike detection)
+  - optimizer/instructions.md (cost optimization recommendations)
+  - policy_engine/instructions.md (policy validation, compliance checks)
+  - reporter/instructions.md (report generation, forecasting)
+- **Focus**: Clear responsibilities, tool usage guidance, error handling
+- **Do NOT touch**: agent.py files, tools/ folders
+
+### For tools-creator:
+- **Input**: This PRD (prd.txt) + API documentation (api_docs.md)
+- **Implement MCP Servers**: Add mcp_servers configuration to agent.py files
+  - cloud_connector: aws-cost-explorer, bigquery, azure-billing, sqlite
+  - anomaly_detector: sqlite
+  - optimizer: aws-cost-explorer, bigquery, azure-billing
+  - policy_engine: filesystem
+  - reporter: aws-cost-explorer, bigquery, filesystem
+- **Create Custom Tools**:
+  - cloud_connector/tools/normalize_cost_data.py
+  - anomaly_detector/tools/calculate_baseline.py
+  - anomaly_detector/tools/detect_spike.py
+  - anomaly_detector/tools/detect_trend_change.py
+  - anomaly_detector/tools/classify_anomaly.py
+  - optimizer/tools/analyze_rightsizing.py
+  - optimizer/tools/calculate_ri_savings.py
+  - optimizer/tools/calculate_cross_cloud_arbitrage.py
+  - policy_engine/tools/validate_action.py
+  - policy_engine/tools/check_compliance.py
+  - reporter/tools/build_dashboard_data.py
+- **Dependencies**: Reference api_docs.md for MCP server configurations, IAM permissions, rate limits
+- **Do NOT touch**: instructions.md files, agent.py files (except adding mcp_servers dict)
+
+## Risk Assessment
+
+### High Risks
+1. **API Rate Limits**: AWS Cost Explorer charges $0.01/request; aggressive caching required
+   - Mitigation: SQLite cache with 24-hour TTL, batch queries where possible
+2. **Missing Credentials**: Agency requires 10+ credentials; onboarding complexity
+   - Mitigation: .env.example with clear instructions, validation checks on startup
+3. **False Positives**: Anomaly detection may flag legitimate cost increases
+   - Mitigation: Tunable thresholds (default >20%), seasonal adjustment, user feedback loop
+
+### Medium Risks
+1. **GCP Billing Export Delay**: Takes 24-48 hours for first data export
+   - Mitigation: Clear documentation, alternative community MCP server for immediate queries
+2. **Cross-Cloud Schema Mismatches**: AWS/GCP/Azure use different cost data structures
+   - Mitigation: Comprehensive NormalizeCostData tool with extensive testing
+3. **Policy Complexity**: Policy validation rules may be ambiguous
+   - Mitigation: Default conservative policies, extensive examples in policy_engine/instructions.md
+
+### Low Risks
+1. **MCP Server Installation**: Requires Node.js and Python in same environment
+   - Mitigation: Docker container option, clear prerequisite documentation
+2. **Large Cost Data**: Organizations with 1000+ resources may exceed memory limits
+   - Mitigation: PostgreSQL option for large deployments, pagination support
+
+## Architecture Decision Records
+
+### ADR-001: Why 6 Agents for 24 Tools?
+**Context**: Design principles suggest 3 agents for 17-32 tool range.
+
+**Decision**: Use 6 agents despite falling within 3-agent threshold.
+
+**Rationale**:
+1. **Domain Specialization**: FinOps has distinct disciplines (data collection, analysis, optimization, governance, reporting) that map to real job roles
+2. **Cross-Agent Workflows**: Complex pipelines (data → anomaly → optimization → policy) benefit from agent-to-agent communication rather than single-agent internal logic
+3. **Multi-Cloud Complexity**: Each cloud provider (AWS, GCP, Azure) requires different authentication, API patterns, and error handling
+4. **Custom Algorithm Isolation**: Anomaly detection and optimization algorithms are statistically complex, benefit from dedicated agent focus
+5. **Parallel Development**: 6 agents with 4-6 tools each enable efficient parallel creation vs 3 agents with 8 tools each
+
+**Consequences**: More agents require more coordination overhead but enable clearer separation of concerns and easier maintenance.
+
+### ADR-002: Hybrid Communication Pattern
+**Context**: Most agencies use pure Orchestrator-Workers pattern.
+
+**Decision**: Use Orchestrator-Workers with Cross-Agent Collaboration flows.
+
+**Rationale**:
+1. CEO remains primary user interface and orchestrator
+2. Specialist agents can communicate directly for multi-step workflows (efficiency)
+3. Cloud Connector → Anomaly Detector flow enables automatic anomaly checks on fresh data
+4. Anomaly Detector → Optimizer flow enables automatic optimization after spike detection
+5. Optimizer → Policy Engine flow enables validation without CEO round-trip
+
+**Consequences**: Slightly more complex than pure orchestrator, but significantly more efficient for pipeline workflows.
+
+### ADR-003: MCP Priority Over Custom Tools
+**Context**: Could implement all tools as custom Python tools.
+
+**Decision**: Use MCP servers wherever available (18/24 tools).
+
+**Rationale**:
+1. **Maintenance**: MCP servers maintained by cloud providers (AWS Labs, Google, Azure)
+2. **Features**: Official MCP servers include features like rate limiting, pagination, error handling
+3. **Updates**: Automatic API updates without code changes
+4. **Security**: Standardized authentication patterns
+
+**Consequences**: Dependency on external MCP server packages, but significant reduction in custom code.
+
+### ADR-004: SQLite for Caching
+**Context**: Need local caching to reduce API costs and improve performance.
+
+**Decision**: Use SQLite MCP server as default, PostgreSQL as optional upgrade.
+
+**Rationale**:
+1. **Zero Configuration**: SQLite requires no setup, single file database
+2. **MCP Support**: Official @modelcontextprotocol/server-sqlite available
+3. **Performance**: Fast local queries, no network latency
+4. **Upgrade Path**: Can switch to PostgreSQL MCP for larger deployments without code changes
+
+**Consequences**: Single-user limitation, but acceptable for initial deployment.
+
+## Appendix: Cost Data Schema
+
+### Normalized Cost Schema
+All cost data from AWS, GCP, and Azure normalized to this format:
+
+```json
+{
+  "provider": "aws|gcp|azure",
+  "account_id": "string",
+  "resource_id": "string",
+  "resource_name": "string",
+  "resource_type": "string (e.g., EC2, BigQuery, VirtualMachine)",
+  "service": "string (e.g., compute, storage, networking)",
+  "region": "string",
+  "cost": 123.45,
+  "currency": "USD",
+  "usage_amount": 123.45,
+  "usage_unit": "string (e.g., hours, GB, requests)",
+  "time_period_start": "ISO8601 timestamp",
+  "time_period_end": "ISO8601 timestamp",
+  "tags": {
+    "key1": "value1",
+    "key2": "value2"
+  },
+  "metadata": {
+    "instance_type": "m5.2xlarge",
+    "pricing_model": "on-demand|reserved|spot",
+    "commitment_id": "string (if RI/Savings Plan)"
+  }
+}
+```
+
+## Appendix: Policy File Format
+
+### Budget Policy Example (budget_policies.yaml)
+
+```yaml
+version: "1.0"
+policies:
+  - name: "Monthly Budget Cap"
+    type: "budget"
+    condition: "monthly_cost > 50000"
+    action: "alert"
+    severity: "high"
+
+  - name: "High-Risk Action Approval"
+    type: "approval"
+    actions:
+      - "delete_resource"
+      - "terminate_instance"
+    approval_level: "director"
+    waiting_period_hours: 24
+
+  - name: "Tagging Compliance"
+    type: "compliance"
+    rule: "all_resources_must_have_tags"
+    required_tags:
+      - "owner"
+      - "environment"
+      - "cost_center"
+
+  - name: "Regional Restrictions"
+    type: "compliance"
+    allowed_regions:
+      - "us-east-1"
+      - "us-west-2"
+      - "eu-west-1"
+    blocked_regions:
+      - "ap-*"  # Block all Asia-Pacific regions
+
+  - name: "Risk-Based Automation"
+    type: "automation"
+    risk_levels:
+      high:
+        - "delete"
+        - "terminate"
+        approval_required: true
+      medium:
+        - "scale_down"
+        - "stop"
+        approval_required: false
+      low:
+        - "tag"
+        - "alert"
+        approval_required: false
+```
+
+---
+
+**Document Version**: 1.0
+**Last Updated**: 2025-12-17
+**PRD Status**: Ready for Parallel Creation
