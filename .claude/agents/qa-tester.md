@@ -30,18 +30,24 @@ from agent2_folder.agent2 import agent2
 
 load_dotenv()
 
-agency = Agency(
-    agent1,  # CEO/entry point from PRD
-    communication_flows=[
-        (agent1, agent2),
-    ],
-    shared_instructions="agency_manifesto.md",
-)
+# Agency must export a create_agency method for deployment
+def create_agency(load_threads_callback=None):
+    agency = Agency(
+        agent1,  # CEO/entry point from PRD
+        communication_flows=[
+            (agent1, agent2),
+        ],
+        shared_instructions="shared_instructions.md",
+    )
+    return agency
 
 if __name__ == "__main__":
+    agency = create_agency()
+    agency.terminal_demo()
+
     # Test with programmatic interface
-    response = agency.get_completion("test query")
-    print(response)
+    # response = agency.get_response_sync("test query")
+    # print(response)
 ```
 
 ### 2. Quick Validation
@@ -64,6 +70,10 @@ Based on PRD functionality, create 5 diverse test queries:
 ### 4. Execute Test Queries
 Run each query and document:
 ```python
+from agency import create_agency
+
+agency = create_agency()
+
 test_queries = [
     "Query 1: [Basic task from PRD]",
     "Query 2: [Multi-agent collaboration task]",
@@ -75,7 +85,7 @@ test_queries = [
 for i, query in enumerate(test_queries, 1):
     print(f"\n=== Test {i} ===")
     print(f"Query: {query}")
-    response = agency.get_completion(query)
+    response = agency.get_response_sync(query)
     print(f"Response: {response}")
     # Document response quality, accuracy, completeness
 ```

@@ -41,26 +41,33 @@ Agency Swarm v1.0.0 uses the OpenAI Agents SDK. Agents are instantiated directly
 ## Agent Module Template (example_agent.py)
 
 ```python
-from agents import ModelSettings
-from agency_swarm import Agent
+from agency_swarm import Agent, ModelSettings
+from openai.types.shared import Reasoning
+
 
 example_agent = Agent(
     name="AgentName",
     description="[Agent role from PRD]",
     instructions="./instructions.md",
+    files_folder="./files",
     tools_folder="./tools",
+    model="gpt-5.2",
     model_settings=ModelSettings(
-        model="gpt-4o",
-        temperature=0.5,
-        max_completion_tokens=25000,
+        reasoning=Reasoning(effort="medium", summary="auto"),
     ),
 )
 ```
 
-## Agent **init**.py Template
+**Notes**:
+
+- Use the `gpt-5.2` model for all agents by default. It is the latest model already available from OpenAI.
+- The `reasoning` parameter configures the model's reasoning effort. Use "medium" for most agents, "high" for complex analysis.
+- Prefer using the CLI command over manually creating the file.
+
+## Agent __init__.py Template
 
 ```python
-sfrom .example_agent import example_agent
+from .example_agent import example_agent
 
 __all__ = ["example_agent"]
 ```
@@ -70,17 +77,40 @@ __all__ = ["example_agent"]
 ```python
 from dotenv import load_dotenv
 from agency_swarm import Agency
-# Agent imports will be added here
+from ceo import ceo
+from developer import developer
+from virtual_assistant import virtual_assistant
 
 load_dotenv()
 
-# Agency instantiation will be completed by qa-tester
-# based on communication flows from PRD
+# do not remove this method, it is used in the main.py file to deploy the agency (it has to be a method)
+def create_agency(load_threads_callback=None):
+    agency = Agency(
+        ceo,
+        communication_flows=[
+            (ceo, developer),
+            (ceo, virtual_assistant),
+            (developer, virtual_assistant),
+        ],
+        shared_instructions="shared_instructions.md",
+    )
+    return agency
 
 if __name__ == "__main__":
-    # This will be wired by qa-tester
-    pass
+    agency = create_agency()
+    agency.terminal_demo()
+
+    # to test the agency, send a single prompt for testing:
+    # print(agency.get_response_sync("your question here"))
 ```
+
+Agency must export a `create_agency` method, which is used for deployment.
+
+The first argument is the entry point for user communication. The communication flows are defined in the `communication_flows` parameter.
+
+**A Note on Communication Flows**:
+
+Communication flows are directional. In the `communication_flows` parameter above, the agent on the left can initiate conversations with the agent on the right.
 
 ## Agency Manifesto Template
 

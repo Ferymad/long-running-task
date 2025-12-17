@@ -1,6 +1,6 @@
 # Agency Swarm Claude Code Sub-Agents
 
-Specialized agents for building production-ready Agency Swarm v1.0.0 multi-agent systems using a phased, test-driven workflow.
+Specialized agents for building production-ready Agency Swarm v1.0.0 multi-agent systems using a phased, test-driven workflow. All agents aligned with `workflow.mdc` specification.
 
 ## Skills
 
@@ -10,10 +10,10 @@ Specialized agents for building production-ready Agency Swarm v1.0.0 multi-agent
 
 - **api-researcher**: Researches MCP servers and APIs, saves docs locally, provides API key instructions
 - **prd-creator**: Transforms concepts into PRDs with API docs, minimizes agent count (4-16 tools/agent)
-- **agent-creator**: Creates agent modules and folders (no instructions)
+- **agent-creator**: Creates agent modules and folders using `gpt-5.2` model with `Reasoning` configuration
 - **instructions-writer**: Writes optimized instructions using prompt engineering best practices
-- **tools-creator**: Implements and tests tools (MCP servers preferred, best practices, shared state)
-- **qa-tester**: Wires agency, sends 5 test queries, suggests improvements, enables iteration
+- **tools-creator**: Implements and tests tools (MCP servers via `agents.mcp`, built-in tools via `agency_swarm.tools`)
+- **qa-tester**: Wires agency with `create_agency()` pattern, sends 5 test queries via `get_response_sync()`
 
 ## Phased Execution Workflow
 
@@ -26,7 +26,47 @@ Specialized agents for building production-ready Agency Swarm v1.0.0 multi-agent
 7. **Test**: qa-tester sends 5 diverse queries, reports results, suggests improvements
 8. **Iterate**: Claude orchestrator delegates fixes to tools-creator or instructions-writer until all tests pass
 
+## Key Patterns (Aligned with workflow.mdc)
+
+### Agent Template
+```python
+from agency_swarm import Agent, ModelSettings
+from openai.types.shared import Reasoning
+
+agent = Agent(
+    name="AgentName",
+    model="gpt-5.2",
+    model_settings=ModelSettings(
+        reasoning=Reasoning(effort="medium", summary="auto"),
+    ),
+)
+```
+
+### MCP Server Integration
+```python
+from agents.mcp import MCPServerStdio
+
+server = MCPServerStdio(
+    name="Server_Name",
+    params={"command": "npx", "args": ["-y", "@modelcontextprotocol/server-name"]},
+    cache_tools_list=True
+)
+```
+
+### Built-in Tools
+```python
+from agency_swarm.tools import WebSearchTool, ImageGenerationTool, PersistentShellTool, IPythonInterpreter
+```
+
+### Agency Pattern
+```python
+def create_agency(load_threads_callback=None):
+    agency = Agency(ceo, communication_flows=[(ceo, worker)], shared_instructions="shared_instructions.md")
+    return agency
+```
+
 ## Best Practices
+
 - **MCP Integration**: Tools-creator adds MCP servers directly to agent files ([docs](https://agency-swarm.ai/core-framework/tools/mcp-integration))
 - **Custom Tools**: Use chain-of-thought, type validation, error hints, test cases ([best practices](https://agency-swarm.ai/core-framework/tools/custom-tools/best-practices))
 - **Shared State**: Use `self._shared_state` for tool data exchange ([docs](https://agency-swarm.ai/additional-features/shared-state))
@@ -46,4 +86,4 @@ User: "Create a customer support agency"
 → Result: working agency/
 ```
 
-See CLAUDE.md for complete orchestration details.
+See CLAUDE.md for complete orchestration details and `.cursor/rules/workflow.mdc` for the authoritative Agency Swarm patterns.
