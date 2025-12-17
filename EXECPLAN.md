@@ -20,7 +20,7 @@ The `.claude/agents/` folder contains 6 specialized agents for building Agency S
 - [x] (2025-12-17 00:07Z) Update instructions-writer.md - reviewed, primarily template-based, consistent
 - [x] (2025-12-17 00:08Z) Update qa-tester.md - fixed create_agency() pattern, get_response_sync() method
 - [x] (2025-12-17 00:09Z) Update .claude/README.md - added key patterns section, aligned with workflow.mdc
-- [ ] Commit and push changes
+- [x] (2025-12-17 00:10Z) Commit and push changes - pushed to claude/align-agents-workflow-vwps7
 
 
 ## Surprises & Discoveries
@@ -52,7 +52,32 @@ The `.claude/agents/` folder contains 6 specialized agents for building Agency S
 
 ## Outcomes & Retrospective
 
-(To be filled after completion)
+### Completed Successfully
+
+All 6 Claude agents in `.claude/agents/` have been aligned with the `workflow.mdc` specification:
+
+1. **api-researcher.md**: Fixed WebSearchTool import path
+2. **prd-creator.md**: Reviewed - no code templates requiring updates
+3. **agent-creator.md**: Major updates - new agent template with gpt-5.2, Reasoning config, create_agency() pattern
+4. **tools-creator.md**: Fixed MCP imports, built-in tools import, updated agent template
+5. **instructions-writer.md**: Reviewed - primarily template-based, consistent with workflow
+6. **qa-tester.md**: Fixed create_agency() pattern and get_response_sync() method
+
+### Key Changes Made
+
+- Model version: `gpt-4o` → `gpt-5.2`
+- Agent imports: `from agents import ModelSettings` → `from agency_swarm import Agent, ModelSettings`
+- Reasoning: Added `from openai.types.shared import Reasoning` and `Reasoning(effort="medium", summary="auto")`
+- MCP imports: `from agency_swarm.tools.mcp` → `from agents.mcp`
+- Built-in tools: `from agents.tool` → `from agency_swarm.tools`
+- Testing: `agency.get_completion()` → `agency.get_response_sync()`
+- Agency pattern: Added `create_agency()` function wrapper
+
+### Lessons Learned
+
+- The workflow.mdc file should be considered the single source of truth for Agency Swarm patterns
+- Agent definition files can drift from the main workflow spec and need periodic alignment checks
+- Including key patterns in README.md helps maintain consistency across the project
 
 
 ## Context and Orientation
