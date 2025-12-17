@@ -13,6 +13,28 @@ The following files can be read on demand, depending on the task at hand:
 - `.cursor/commands/write-instructions.md` - how to write effective instructions for AI agents
 - `.cursor/commands/create-prd.md` - how to create a PRD for an agent (use for complex multi agent systems)
 
+## ExecPlans for Long-Running Tasks
+
+For complex agency builds expected to take 3+ hours, use the **execplan** skill to create a structured execution plan:
+
+```
+/skill execplan
+```
+
+ExecPlans are living documents that enable autonomous, multi-hour coding sessions. They include:
+- **Progress tracking** with timestamps for each step
+- **Decision Log** documenting all choices made
+- **Surprises & Discoveries** for unexpected findings
+- **Validation criteria** for each milestone
+
+**When to use ExecPlans:**
+- Complex multi-agent agencies (3+ agents)
+- Agencies with custom API integrations
+- Significant refactors of existing agencies
+- Any task expected to run autonomously for extended periods
+
+The execplan skill creates an `EXECPLAN.md` file that tracks progress throughout implementation. See `.claude/skills/execplan/` for the full template.
+
 ## Background
 
 Agency Swarm is an open-source framework designed for orchestrating and managing multiple AI agents, built upon the OpenAI Assistants API. Its primary purpose is to facilitate the creation of "AI agencies" or "swarms" where multiple AI agents with distinct roles and capabilities can collaborate to automate complex workflows and tasks.
@@ -95,6 +117,7 @@ See documentation for more details.
 
 ### 1. When user has vague idea:
 
+0. **For complex agencies (3+ agents)**: Create an ExecPlan using `/skill execplan` to track progress throughout the build
 1. Ask clarifying questions to understand:
    - Core purpose and goals of the agency
    - Expected user interactions
@@ -167,6 +190,7 @@ See documentation for more details.
 
 ## Key Patterns
 
+- **ExecPlans for Long Tasks**: Use `/skill execplan` for complex agencies (3+ agents) or 3+ hour builds
 - **Phased Execution**: agent-creator + instructions-writer first, THEN tools-creator
 - **PRD Confirmation**: Always get user approval before development
 - **API Keys First**: Collect ALL keys with instructions before any development
@@ -175,7 +199,8 @@ See documentation for more details.
 - **Tool Testing**: tools-creator tests each tool individually
 - **QA Testing**: qa-tester sends 5 example queries and suggests improvements
 - **Iteration**: Use qa-tester feedback to improve agents
-- **Progress Tracking**: Use TodoWrite extensively
+- **Progress Tracking**: Use TodoWrite for tasks; ExecPlan Progress section for long-running builds
+- **Living Documentation**: Keep ExecPlan sections (Progress, Decision Log, Surprises) updated throughout
 
 ## Context for Sub-Agents
 
