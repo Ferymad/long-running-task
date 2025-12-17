@@ -2,6 +2,10 @@
 
 Specialized agents for building production-ready Agency Swarm v1.0.0 multi-agent systems using a phased, test-driven workflow.
 
+## Skills
+
+- **execplan**: Create and maintain execution plans (ExecPlans) for complex, long-running tasks. Use `/skill execplan` when building complex agencies (3+ agents) or tasks expected to take 3+ hours. Based on the [OpenAI Codex ExecPlans](https://cookbook.openai.com/articles/codex_exec_plans) methodology for multi-hour autonomous coding sessions.
+
 ## Agents
 
 - **api-researcher**: Researches MCP servers and APIs, saves docs locally, provides API key instructions
