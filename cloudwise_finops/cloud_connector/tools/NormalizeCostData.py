@@ -62,8 +62,13 @@ class NormalizeCostData(BaseTool):
                 return f"Warning: Normalization produced no records. Check raw_data structure for provider '{self.source_provider}'."
 
             # Step 5: Return summary and normalized data
-            total_cost = sum(record["cost"] for record in normalized)
-            unique_services = len(set(record["service"] for record in normalized))
+            # Defensive type checking for cost values
+            total_cost = sum(
+                float(record.get("cost", 0) or 0)
+                for record in normalized
+                if isinstance(record.get("cost"), (int, float, type(None)))
+            )
+            unique_services = len(set(record.get("service", "unknown") for record in normalized))
 
             result = {
                 "normalized_count": len(normalized),

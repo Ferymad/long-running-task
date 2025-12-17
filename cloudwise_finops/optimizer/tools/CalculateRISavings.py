@@ -63,7 +63,7 @@ class CalculateRISavings(BaseTool):
             return "Error: usage_hours cannot be negative."
 
         if self.usage_hours > max_monthly_hours:
-            return f"Warning: usage_hours ({self.usage_hours}) exceeds max monthly hours ({max_monthly_hours}). Capping at {max_monthly_hours}."
+            # Cap usage_hours to maximum instead of returning early
             self.usage_hours = max_monthly_hours
 
         # Step 4: Calculate utilization percentage

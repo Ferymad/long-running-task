@@ -58,7 +58,7 @@ class CalculateBaseline(BaseTool):
             return "Error: window_days must be at least 7 for meaningful baseline. Use 14-60 days for optimal results."
 
         if self.window_days > len(history):
-            return f"Warning: window_days ({self.window_days}) exceeds available data ({len(history)} points). Using all available data."
+            # Cap window_days to available data instead of returning early
             self.window_days = len(history)
 
         try:

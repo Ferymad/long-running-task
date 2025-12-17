@@ -1,17 +1,20 @@
 from dotenv import load_dotenv
 from agency_swarm import Agency
-from finops_ceo import finops_ceo
-from cloud_connector import cloud_connector
-from anomaly_detector import anomaly_detector
-from optimizer import optimizer
-from policy_engine import policy_engine
-from reporter import reporter
+from .finops_ceo import finops_ceo
+from .cloud_connector import cloud_connector
+from .anomaly_detector import anomaly_detector
+from .optimizer import optimizer
+from .policy_engine import policy_engine
+from .reporter import reporter
 
 load_dotenv()
 
 
 def create_agency(load_threads_callback=None):
     """Create and return the CloudWise FinOps agency instance.
+
+    Args:
+        load_threads_callback: Optional callback function to load conversation threads.
 
     This function is required for deployment.
     """
@@ -31,6 +34,7 @@ def create_agency(load_threads_callback=None):
             (policy_engine, optimizer),
         ],
         shared_instructions="shared_instructions.md",
+        threads_callbacks=load_threads_callback,
     )
     return agency
 

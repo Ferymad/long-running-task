@@ -61,12 +61,12 @@ class DetectSpike(BaseTool):
         except (ValueError, KeyError) as e:
             return f"Error: Invalid baseline data structure. Details: {str(e)}"
 
-        # Step 3: Validate thresholds
-        if self.threshold_percent < 0:
-            return "Error: threshold_percent must be positive. Common values: 15-30%."
+        # Step 3: Validate thresholds (must be greater than zero to avoid division by zero)
+        if self.threshold_percent <= 0:
+            return "Error: threshold_percent must be greater than zero. Common values: 15-30%."
 
-        if self.z_score_threshold < 0:
-            return "Error: z_score_threshold must be positive. Common values: 2.0 (95% confidence) or 3.0 (99% confidence)."
+        if self.z_score_threshold <= 0:
+            return "Error: z_score_threshold must be greater than zero. Common values: 2.0 (95% confidence) or 3.0 (99% confidence)."
 
         try:
             # Step 4: Calculate percentage deviation

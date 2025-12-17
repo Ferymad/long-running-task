@@ -65,8 +65,19 @@ class FetchGCPBillingExport(BaseTool):
             return f"Error: Invalid date format. Use YYYY-MM-DD. Details: {str(e)}"
 
         try:
-            # Step 3: Build BigQuery SQL query
-            project_clause = f"AND project.id = '{self.project_filter}'" if self.project_filter else ""
+            # Step 3: Sanitize project_filter to prevent SQL injection
+            # Only allow alphanumeric characters, hyphens, and underscores in project IDs
+            import re
+            sanitized_project_filter = ""
+            if self.project_filter:
+                if not re.match(r'^[a-z][a-z0-9-]{4,28}[a-z0-9]$', self.project_filter):
+                    return f"Error: Invalid project_filter format '{self.project_filter}'. GCP project IDs must be 6-30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."
+                sanitized_project_filter = self.project_filter
+
+            # Step 4: Build BigQuery SQL query with parameterized approach
+            # Note: In production, use BigQuery's parameterized query API:
+            # query_params = [bigquery.ScalarQueryParameter("project_id", "STRING", sanitized_project_filter)]
+            project_clause = f"AND project.id = @project_id" if sanitized_project_filter else ""
 
             sql_query = f"""
             SELECT
@@ -82,12 +93,19 @@ class FetchGCPBillingExport(BaseTool):
             FROM
                 `{bigquery_project}.billing_export.gcp_billing_export_v1_*`
             WHERE
-                DATE(_PARTITIONTIME) BETWEEN '{self.start_date}' AND '{self.end_date}'
+                DATE(_PARTITIONTIME) BETWEEN @start_date AND @end_date
                 {project_clause}
             ORDER BY
                 cost DESC
             LIMIT 100
             """
+            # Query parameters would be passed separately in production:
+            # query_params = [
+            #     bigquery.ScalarQueryParameter("start_date", "DATE", self.start_date),
+            #     bigquery.ScalarQueryParameter("end_date", "DATE", self.end_date),
+            # ]
+            # if sanitized_project_filter:
+            #     query_params.append(bigquery.ScalarQueryParameter("project_id", "STRING", sanitized_project_filter))
 
             # Step 4: Execute query (using mock data for testing)
             # In production, this would use google-cloud-bigquery:

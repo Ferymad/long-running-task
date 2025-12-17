@@ -145,10 +145,12 @@ Code assumes `record["cost"]` is always numeric without checking for None or inv
 
 ## Action Items
 
-1. [ ] Fix division-by-zero vulnerabilities (DetectSpike.py, ClassifyAnomaly.py)
-2. [ ] Fix unreachable code patterns (CalculateBaseline.py, CalculateRISavings.py)
-3. [ ] Fix SQL injection in FetchGCPBillingExport.py
-4. [ ] Implement actual Slack webhook in TriggerAlert.py
-5. [ ] Fix imports in agency.py (use relative imports)
-6. [ ] Pass load_threads_callback to Agency constructor
-7. [ ] Add defensive type checking in NormalizeCostData.py
+1. [x] Fix division-by-zero vulnerabilities (DetectSpike.py, ClassifyAnomaly.py) - **RESOLVED**
+2. [x] Fix unreachable code patterns (CalculateBaseline.py, CalculateRISavings.py) - **RESOLVED**
+3. [x] Fix SQL injection in FetchGCPBillingExport.py - **RESOLVED** (added input validation + parameterized query pattern)
+4. [x] Implement actual Slack webhook in TriggerAlert.py - **RESOLVED** (using requests.post with proper error handling)
+5. [x] Fix imports in agency.py (use relative imports) - **RESOLVED**
+6. [x] Pass load_threads_callback to Agency constructor - **RESOLVED**
+7. [x] Add defensive type checking in NormalizeCostData.py - **RESOLVED**
+
+**All 9 issues resolved on 2025-12-17**

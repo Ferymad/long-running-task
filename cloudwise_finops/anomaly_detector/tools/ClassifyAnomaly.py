@@ -111,7 +111,8 @@ class ClassifyAnomaly(BaseTool):
                             })
 
                 # Identify major contributors (>30% of total cost)
-                if current_cost > (current_value * 0.3):
+                # Guard against division by zero when current_value is 0
+                if current_value > 0 and current_cost > (current_value * 0.3):
                     classification_signals["major_contributors"].append({
                         "service": service_name,
                         "cost": current_cost,

@@ -135,28 +135,41 @@ class TriggerAlert(BaseTool):
 
         try:
             # Step 5: Send HTTP POST to Slack webhook
-            # In production, this would use requests library:
-            # import requests
-            # response = requests.post(webhook_url, json=slack_payload, timeout=10)
-            # response.raise_for_status()
+            import requests
 
-            # Mock successful response for testing
-            alert_id = f"alert_{int(datetime.now().timestamp())}"
+            response = requests.post(
+                webhook_url,
+                json=slack_payload,
+                timeout=10,
+                headers={"Content-Type": "application/json"}
+            )
 
-            result = {
-                "status": "success",
-                "alert_id": alert_id,
-                "channel": "slack",
-                "severity": self.severity,
-                "timestamp": timestamp,
-                "webhook_url": webhook_url[:50] + "...",  # Partial URL for security
-                "message_preview": self.message[:100]
-            }
+            # Check for successful response
+            if response.status_code == 200 and response.text == "ok":
+                alert_id = f"alert_{int(datetime.now().timestamp())}"
 
-            return f"Success: Alert sent to Slack. Alert ID: {alert_id}. Severity: {self.severity}. Channel: {self.channel}. Timestamp: {timestamp}. Message: {self.message[:100]}... Details: {json.dumps(result, indent=2)}"
+                result = {
+                    "status": "success",
+                    "alert_id": alert_id,
+                    "channel": "slack",
+                    "severity": self.severity,
+                    "timestamp": timestamp,
+                    "webhook_url": webhook_url[:50] + "...",  # Partial URL for security
+                    "message_preview": self.message[:100]
+                }
 
-        except Exception as e:
+                return f"Success: Alert sent to Slack. Alert ID: {alert_id}. Severity: {self.severity}. Channel: {self.channel}. Timestamp: {timestamp}. Message: {self.message[:100]}... Details: {json.dumps(result, indent=2)}"
+            else:
+                return f"Error: Slack webhook returned status {response.status_code}: {response.text}. Verify webhook URL is valid and not revoked."
+
+        except requests.exceptions.Timeout:
+            return "Error: Slack webhook request timed out after 10 seconds. Check network connectivity and Slack service status."
+        except requests.exceptions.ConnectionError as e:
+            return f"Error: Failed to connect to Slack webhook: {str(e)}. Verify network connectivity."
+        except requests.exceptions.RequestException as e:
             return f"Error sending Slack alert: {str(e)}. Troubleshooting: (1) Verify SLACK_WEBHOOK_URL is correct, (2) Test webhook manually: curl -X POST -H 'Content-type: application/json' --data '{{\"text\":\"Test\"}}' {webhook_url[:30]}..., (3) Check Slack app permissions include 'incoming-webhook' scope, (4) Ensure webhook hasn't been revoked in Slack app settings."
+        except ImportError:
+            return "Error: 'requests' library not installed. Run 'pip install requests' to enable Slack notifications."
 
 
 if __name__ == "__main__":
