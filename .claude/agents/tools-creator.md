@@ -31,8 +31,9 @@ Read the API docs to find which MCP servers are available for the required tools
 For each agent that needs MCP tools, MODIFY the agent's .py file:
 
 ```python
-from agency_swarm import Agent
-from agency_swarm.tools.mcp import MCPServerStdio
+from agency_swarm import Agent, ModelSettings
+from agents.mcp import MCPServerStdio
+from openai.types.shared import Reasoning
 
 # Define MCP server
 filesystem_server = MCPServerStdio(
@@ -49,12 +50,12 @@ agent_name = Agent(
     name="AgentName",
     description="...",
     instructions="./instructions.md",
+    files_folder="./files",
     tools_folder="./tools",
     mcp_servers=[filesystem_server],  # ADD THIS LINE
+    model="gpt-5.2",
     model_settings=ModelSettings(
-        model="gpt-4o",
-        temperature=0.5,
-        max_completion_tokens=25000,
+        reasoning=Reasoning(effort="medium", summary="auto"),
     ),
 )
 ```
@@ -62,6 +63,9 @@ agent_name = Agent(
 ### Common MCP Servers
 
 ```python
+import os
+from agents.mcp import MCPServerStdio
+
 # GitHub Server
 github_server = MCPServerStdio(
     name="GitHub_Server",
@@ -85,15 +89,17 @@ slack_server = MCPServerStdio(
 )
 ```
 
-### Web Search Tool (Built-in)
+### Built-in Tools
 
-You can use the following built-in tool when agent requires web searchs:
+Agency Swarm has built-in tools for web search and image generation. If the agent requires these capabilities, you can simply include them in the agent's tools list:
 
 ```python
-from agents.tool import WebSearchTool
+from agency_swarm.tools import WebSearchTool, ImageGenerationTool, PersistentShellTool, IPythonInterpreter
 
-tools = [WebSearchTool()]
+tools = [WebSearchTool(), ImageGenerationTool(), PersistentShellTool, IPythonInterpreter]
 ```
+
+Note: Only WebSearchTool and ImageGenerationTool need to be initialized as they are from the Agents SDK. BaseTools do not need to be initialized.
 
 ### Custom Tool Pattern (ONLY if no MCP)
 

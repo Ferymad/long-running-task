@@ -44,13 +44,15 @@ Common MCP servers to check for:
 
 ## Web Search Tool (Built-in)
 
-Agency Swarm has a built-in tool for web searchs. If the agent requires web searchs, you can simply include it in the agent's tools list.
+Agency Swarm has built-in tools for web search and image generation. If the agent requires web search, you can simply include it in the agent's tools list.
 
 ```python
-from agents.tool import WebSearchTool
+from agency_swarm.tools import WebSearchTool, ImageGenerationTool
 
-tools = [WebSearchTool()]
+tools = [WebSearchTool(), ImageGenerationTool()]
 ```
+
+Note: Only WebSearchTool and ImageGenerationTool need to be initialized as they are from the Agents SDK. BaseTool subclasses do not need to be initialized.
 
 ## Process
 
