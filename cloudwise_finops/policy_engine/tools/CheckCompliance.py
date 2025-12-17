@@ -84,9 +84,17 @@ class CheckCompliance(BaseTool):
         frameworks = [f.strip() for f in self.compliance_frameworks.split(",")]
         valid_frameworks = ["internal", "soc2", "hipaa", "pci", "gdpr", "all"]
 
+        # Collect warnings for unknown frameworks and filter to valid ones only
+        framework_warnings = []
+        valid_input_frameworks = []
         for framework in frameworks:
             if framework not in valid_frameworks:
-                return f"Warning: Unknown compliance framework '{framework}'. Valid options: {', '.join(valid_frameworks)}. Proceeding with internal policies only."
+                framework_warnings.append(f"Unknown framework '{framework}' ignored")
+            else:
+                valid_input_frameworks.append(framework)
+
+        # Use valid frameworks, fallback to internal if none valid
+        frameworks = valid_input_frameworks if valid_input_frameworks else ["internal"]
 
         try:
             # Step 4: Perform compliance checks
@@ -156,7 +164,8 @@ class CheckCompliance(BaseTool):
                     "environment": environment,
                     "is_compliant": is_compliant,
                     "compliance_score": compliance_score,
-                    "frameworks_checked": frameworks
+                    "frameworks_checked": frameworks,
+                    "framework_warnings": framework_warnings
                 },
                 "violations": {
                     "total_count": len(violations),
@@ -179,13 +188,14 @@ class CheckCompliance(BaseTool):
             }
 
             # Step 10: Generate summary
+            warning_note = f" (Warnings: {', '.join(framework_warnings)})" if framework_warnings else ""
             if is_compliant:
-                summary = f"Compliance Check: PASSED - Resource {self.resource_id} is compliant with all {len(frameworks)} framework(s). Compliance score: {compliance_score}/100. No violations detected."
+                summary = f"Compliance Check: PASSED - Resource {self.resource_id} is compliant with all {len(frameworks)} framework(s). Compliance score: {compliance_score}/100. No violations detected.{warning_note}"
             elif has_critical_violations:
                 critical_count = len(severity_breakdown["CRITICAL"])
-                summary = f"Compliance Check: FAILED - Resource {self.resource_id} has {critical_count} CRITICAL violation(s) and {len(violations)} total violations. Compliance score: {compliance_score}/100. Immediate remediation required. Top issue: {violations[0]['description']}"
+                summary = f"Compliance Check: FAILED - Resource {self.resource_id} has {critical_count} CRITICAL violation(s) and {len(violations)} total violations. Compliance score: {compliance_score}/100. Immediate remediation required. Top issue: {violations[0]['description']}{warning_note}"
             else:
-                summary = f"Compliance Check: PARTIAL - Resource {self.resource_id} has {len(violations)} violation(s) (no critical). Compliance score: {compliance_score}/100. Remediation recommended within 30 days."
+                summary = f"Compliance Check: PARTIAL - Resource {self.resource_id} has {len(violations)} violation(s) (no critical). Compliance score: {compliance_score}/100. Remediation recommended within 30 days.{warning_note}"
 
             return f"{summary} Details: {json.dumps(result, indent=2)}"
 

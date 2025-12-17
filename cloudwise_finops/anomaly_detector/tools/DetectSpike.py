@@ -119,8 +119,18 @@ class DetectSpike(BaseTool):
             within_95_interval = within_95.get("lower", 0) <= self.current_value <= within_95.get("upper", float('inf'))
             within_99_interval = within_99.get("lower", 0) <= self.current_value <= within_99.get("upper", float('inf'))
 
-            # Step 10: Build result
+            # Step 10: Generate human-readable summary
+            if is_spike:
+                summary = f"SPIKE DETECTED: Current cost ${self.current_value:.2f} is {deviation_percent:.1f}% above baseline (${baseline_mean:.2f}). Severity: {severity}. Z-score: {z_score:.2f} ({abs(z_score):.1f} standard deviations). Confidence: {confidence}%."
+            else:
+                if deviation_percent > 0:
+                    summary = f"No spike detected. Current cost ${self.current_value:.2f} is {deviation_percent:.1f}% above baseline but within acceptable threshold ({self.threshold_percent}%) or statistical significance."
+                else:
+                    summary = f"No spike detected. Current cost ${self.current_value:.2f} is {abs(deviation_percent):.1f}% below baseline (cost decrease)."
+
+            # Step 11: Build result with summary included for tool chaining
             result = {
+                "summary": summary,
                 "is_spike": is_spike,
                 "current_value": self.current_value,
                 "baseline_mean": baseline_mean,
@@ -141,16 +151,8 @@ class DetectSpike(BaseTool):
                 }
             }
 
-            # Step 11: Generate human-readable summary
-            if is_spike:
-                summary = f"SPIKE DETECTED: Current cost ${self.current_value:.2f} is {deviation_percent:.1f}% above baseline (${baseline_mean:.2f}). Severity: {severity}. Z-score: {z_score:.2f} ({abs(z_score):.1f} standard deviations). Confidence: {confidence}%."
-            else:
-                if deviation_percent > 0:
-                    summary = f"No spike detected. Current cost ${self.current_value:.2f} is {deviation_percent:.1f}% above baseline but within acceptable threshold ({self.threshold_percent}%) or statistical significance."
-                else:
-                    summary = f"No spike detected. Current cost ${self.current_value:.2f} is {abs(deviation_percent):.1f}% below baseline (cost decrease)."
-
-            return f"{summary} Details: {json.dumps(result, indent=2)}"
+            # Return pure JSON for downstream tool chaining
+            return json.dumps(result, indent=2)
 
         except Exception as e:
             return f"Error detecting spike: {str(e)}. Verify baseline and current_value are valid numbers."

@@ -70,7 +70,9 @@ class NormalizeCostData(BaseTool):
             )
             unique_services = len(set(record.get("service", "unknown") for record in normalized))
 
+            # Build result with summary included for tool chaining
             result = {
+                "summary": f"Normalized {len(normalized)} cost records from {self.source_provider.upper()}. Total cost: ${total_cost:.2f}. Unique services: {unique_services}. Ready for caching or analysis.",
                 "normalized_count": len(normalized),
                 "total_cost": total_cost,
                 "currency": normalized[0]["currency"] if normalized else "USD",
@@ -79,7 +81,8 @@ class NormalizeCostData(BaseTool):
                 "records": normalized[:20]  # Return first 20 for response brevity
             }
 
-            return f"Success: Normalized {len(normalized)} cost records from {self.source_provider.upper()}. Total cost: ${total_cost:.2f}. Unique services: {unique_services}. Ready for caching or analysis. Details: {json.dumps(result, indent=2)}"
+            # Return pure JSON for downstream tool chaining
+            return json.dumps(result, indent=2)
 
         except KeyError as e:
             return f"Error: Missing required field in raw_data: {str(e)}. Ensure raw_data comes from a valid Fetch{self.source_provider.upper()} tool output."

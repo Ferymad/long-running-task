@@ -124,8 +124,12 @@ class CalculateBaseline(BaseTool):
             # Step 8: Calculate coefficient of variation (CV) for stability metric
             cv = (std_deviation / baseline_mean * 100) if baseline_mean > 0 else 0
 
-            # Step 9: Build result
+            # Step 9: Add interpretation
+            stability = "stable" if cv < 15 else "moderate" if cv < 30 else "highly variable"
+
+            # Step 10: Build result with summary included for tool chaining
             result = {
+                "summary": f"Calculated baseline from {len(window_costs)} days of cost data. Mean: ${baseline_mean:.2f}, Std Dev: ${std_deviation:.2f}, CV: {cv:.1f}% ({stability}). 95% confidence interval: ${confidence_95_lower:.2f} - ${confidence_95_upper:.2f}. Seasonal adjustment: {self.enable_seasonal_adjustment}.",
                 "baseline_mean": round(baseline_mean, 2),
                 "std_deviation": round(std_deviation, 2),
                 "coefficient_of_variation": round(cv, 2),
@@ -146,10 +150,8 @@ class CalculateBaseline(BaseTool):
                 "seasonal_adjustment_enabled": self.enable_seasonal_adjustment
             }
 
-            # Step 10: Add interpretation
-            stability = "stable" if cv < 15 else "moderate" if cv < 30 else "highly variable"
-
-            return f"Success: Calculated baseline from {len(window_costs)} days of cost data. Mean: ${baseline_mean:.2f}, Std Dev: ${std_deviation:.2f}, CV: {cv:.1f}% ({stability}). 95% confidence interval: ${confidence_95_lower:.2f} - ${confidence_95_upper:.2f}. Seasonal adjustment: {self.enable_seasonal_adjustment}. Details: {json.dumps(result, indent=2)}"
+            # Return pure JSON for downstream tool chaining
+            return json.dumps(result, indent=2)
 
         except statistics.StatisticsError as e:
             return f"Error calculating statistics: {str(e)}. Ensure cost_history contains valid numeric cost values."
