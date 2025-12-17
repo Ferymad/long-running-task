@@ -248,7 +248,7 @@ class CheckCompliance(BaseTool):
                                     "description": f"Resource in blocked region: {region}",
                                     "severity": "CRITICAL",
                                     "policy": policy.get("name", "regional_policy"),
-                                    "remediation": f"Migrate out of blocked region immediately",
+                                    "remediation": "Migrate out of blocked region immediately",
                                     "effort": "4 hours"
                                 })
                         elif region == blocked_pattern:
@@ -256,7 +256,7 @@ class CheckCompliance(BaseTool):
                                 "description": f"Resource in explicitly blocked region: {region}",
                                 "severity": "CRITICAL",
                                 "policy": policy.get("name", "regional_policy"),
-                                "remediation": f"Migrate to allowed region immediately",
+                                "remediation": "Migrate to allowed region immediately",
                                 "effort": "4 hours"
                             })
 

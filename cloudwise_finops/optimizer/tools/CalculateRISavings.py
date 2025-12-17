@@ -173,7 +173,7 @@ class CalculateRISavings(BaseTool):
         except Exception as e:
             return f"Error calculating RI savings: {str(e)}. Verify instance_type, region, and provider are valid."
 
-    def _get_pricing(self, provider, instance_type, region, term):
+    def _get_pricing(self, provider, instance_type, _region, term):
         """Get simplified pricing for on-demand and RI options."""
         # Simplified pricing (in production, query cloud provider pricing APIs)
         # Discount rates: 1yr RI ~35%, 3yr RI ~55% off on-demand

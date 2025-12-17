@@ -98,7 +98,7 @@ class CalculateBaseline(BaseTool):
                 # Group costs by day of week
                 day_costs = {i: [] for i in range(7)}  # 0=Monday, 6=Sunday
 
-                for date, cost in zip(window_dates, window_costs):
+                for date, cost in zip(window_dates, window_costs, strict=True):
                     day_of_week = date.weekday()
                     day_costs[day_of_week].append(cost)
 

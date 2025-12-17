@@ -202,7 +202,7 @@ class ClassifyAnomaly(BaseTool):
         except Exception as e:
             return f"Error classifying anomaly: {str(e)}. Verify anomaly_data and cost_breakdown structures."
 
-    def _generate_recommendations(self, classification, signals, severity):
+    def _generate_recommendations(self, classification, _signals, severity):
         """Generate specific remediation recommendations based on classification."""
         actions = []
 
